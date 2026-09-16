@@ -1,0 +1,13 @@
+[
+  {
+    "id": "1789406670827",
+    "name": "Arun Kumar",
+    "phone": "9876543210",
+    "licenseNumber": "KA012023456789",
+    "vehicleNumber": "KA01AB1234",
+    "vehicleType": "Delivery Van",
+    "status": "On Delivery",
+    "createdAt": "2026-09-14T17:24:30.827Z",
+    "updatedAt": "2026-09-14T17:28:21.768Z"
+  }
+]

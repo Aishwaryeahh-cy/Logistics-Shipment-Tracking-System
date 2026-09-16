@@ -1,0 +1,18 @@
+[
+  {
+    "id": "1789409378750",
+    "name": "Amrutha",
+    "email": "amrutha@test.com",
+    "password": "$2b$10$4nd.HvfJLyu8ylETPfjRyuEOmX8VnGTcFz7Y.43G0utmxjWqF8GBW",
+    "role": "user",
+    "createdAt": "2026-09-14T18:09:38.750Z"
+  },
+  {
+    "id": "1789409759107",
+    "name": "Amrutha",
+    "email": "amrutha@gmail.com",
+    "password": "$2b$10$S3b3tgKMeBdc1lvpSLrLK.d2CoyViP079wWDMXH9X23H6aZrMnWPq",
+    "role": "user",
+    "createdAt": "2026-09-14T18:15:59.107Z"
+  }
+]
