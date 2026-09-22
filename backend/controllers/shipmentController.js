@@ -1,27 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-
-const shipmentsFile = path.join(__dirname, "../data/shipments.json");
-
-// Read shipments from JSON file
-const readShipments = () => {
-    const data = fs.readFileSync(shipmentsFile, "utf-8");
-    return JSON.parse(data);
-};
-
-// Write shipments to JSON file
-const writeShipments = (shipments) => {
-    fs.writeFileSync(
-        shipmentsFile,
-        JSON.stringify(shipments, null, 2)
-    );
-};
+const Shipment = require("../models/Shipment");
+const TrackingEvent = require("../models/TrackingEvent");
 
 
 // CREATE SHIPMENT
-const createShipment = (req, res) => {
+const createShipment = async (req, res) => {
+
     try {
-        const shipments = readShipments();
 
         const {
             senderName,
@@ -34,6 +18,7 @@ const createShipment = (req, res) => {
             weight
         } = req.body;
 
+
         // Required field validation
         if (
             !senderName ||
@@ -41,24 +26,35 @@ const createShipment = (req, res) => {
             !origin ||
             !destination
         ) {
+
             return res.status(400).json({
                 success: false,
                 message: "Required shipment details are missing"
             });
+
         }
 
-        const shipment = {
-            id: Date.now().toString(),
 
-            trackingNumber: `LTS${Date.now()}`,
+        // Generate tracking number
+        const trackingNumber =
+            `LTS${Date.now()}`;
+
+
+        // Create shipment in MongoDB
+        const shipment = await Shipment.create({
+
+            trackingNumber,
 
             senderName,
+
             senderPhone: senderPhone || "",
 
             receiverName,
+
             receiverPhone: receiverPhone || "",
 
             origin,
+
             destination,
 
             packageType: packageType || "General",
@@ -69,189 +65,247 @@ const createShipment = (req, res) => {
 
             currentLocation: origin,
 
-            estimatedDelivery: null,
+            estimatedDelivery: null
 
-            createdAt: new Date().toISOString()
-        };
+        });
+        await TrackingEvent.create({
+    shipmentId: shipment._id,
+    status: shipment.status,
+    location: shipment.currentLocation,
+    description: "Shipment created"
+});
 
-        shipments.push(shipment);
-
-        writeShipments(shipments);
 
         res.status(201).json({
+
             success: true,
+
             message: "Shipment created successfully",
+
             data: shipment
+
         });
 
     } catch (error) {
 
         res.status(500).json({
+
             success: false,
+
             message: "Failed to create shipment",
+
             error: error.message
+
         });
 
     }
+
 };
 
 
 // GET ALL SHIPMENTS
-const getShipments = (req, res) => {
+const getShipments = async (req, res) => {
 
     try {
 
-        const shipments = readShipments();
+        const shipments =
+            await Shipment.find();
 
         res.status(200).json({
+
             success: true,
+
             count: shipments.length,
+
             data: shipments
+
         });
 
     } catch (error) {
 
         res.status(500).json({
+
             success: false,
+
             message: "Failed to fetch shipments",
+
             error: error.message
+
         });
 
     }
+
 };
 
 
 // GET SHIPMENT BY ID
-const getShipmentById = (req, res) => {
+const getShipmentById = async (req, res) => {
 
     try {
 
-        const shipments = readShipments();
+        const shipment =
+            await Shipment.findById(req.params.id);
 
-        const shipment = shipments.find(
-            item => item.id === req.params.id
-        );
 
         if (!shipment) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message: "Shipment not found"
+
             });
 
         }
 
+
         res.status(200).json({
+
             success: true,
+
             data: shipment
+
         });
 
     } catch (error) {
 
         res.status(500).json({
+
             success: false,
+
             message: "Failed to fetch shipment",
+
             error: error.message
+
         });
 
     }
+
 };
 
 
 // UPDATE SHIPMENT
-const updateShipment = (req, res) => {
+const updateShipment = async (req, res) => {
 
     try {
 
-        const shipments = readShipments();
+        const shipment =
+            await Shipment.findByIdAndUpdate(
 
-        const index = shipments.findIndex(
-            item => item.id === req.params.id
-        );
+                req.params.id,
 
-        if (index === -1) {
+                req.body,
+
+                {
+                    new: true,
+                    runValidators: true
+                }
+
+            );
+
+
+        if (!shipment) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message: "Shipment not found"
+
             });
 
         }
 
-        shipments[index] = {
-            ...shipments[index],
-            ...req.body,
-            updatedAt: new Date().toISOString()
-        };
-
-        writeShipments(shipments);
 
         res.status(200).json({
+
             success: true,
+
             message: "Shipment updated successfully",
-            data: shipments[index]
+
+            data: shipment
+
         });
 
     } catch (error) {
 
         res.status(500).json({
+
             success: false,
+
             message: "Failed to update shipment",
+
             error: error.message
+
         });
 
     }
+
 };
 
 
 // DELETE SHIPMENT
-const deleteShipment = (req, res) => {
+const deleteShipment = async (req, res) => {
 
     try {
 
-        const shipments = readShipments();
+        const shipment =
+            await Shipment.findByIdAndDelete(
+                req.params.id
+            );
 
-        const index = shipments.findIndex(
-            item => item.id === req.params.id
-        );
 
-        if (index === -1) {
+        if (!shipment) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message: "Shipment not found"
+
             });
 
         }
 
-        const deletedShipment = shipments[index];
-
-        shipments.splice(index, 1);
-
-        writeShipments(shipments);
 
         res.status(200).json({
+
             success: true,
+
             message: "Shipment deleted successfully",
-            data: deletedShipment
+
+            data: shipment
+
         });
 
     } catch (error) {
 
         res.status(500).json({
+
             success: false,
+
             message: "Failed to delete shipment",
+
             error: error.message
+
         });
 
     }
+
 };
 
 
 module.exports = {
+
     createShipment,
+
     getShipments,
+
     getShipmentById,
+
     updateShipment,
+
     deleteShipment
+
 };

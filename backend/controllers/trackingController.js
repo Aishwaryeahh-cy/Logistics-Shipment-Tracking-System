@@ -1,138 +1,61 @@
-const fs = require("fs");
-const path = require("path");
-
-const shipmentsFile = path.join(
-    __dirname,
-    "../data/shipments.json"
-);
-
-
-// Read shipments
-const readShipments = () => {
-
-    const data = fs.readFileSync(
-        shipmentsFile,
-        "utf-8"
-    );
-
-    return JSON.parse(data);
-
-};
-
-
-// Write shipments
-const writeShipments = (shipments) => {
-
-    fs.writeFileSync(
-        shipmentsFile,
-        JSON.stringify(shipments, null, 2)
-    );
-
-};
+const Shipment = require("../models/Shipment");
+const TrackingEvent = require("../models/TrackingEvent");
 
 
 // GET TRACKING INFORMATION
-const getTrackingInfo = (req, res) => {
-
+const getTrackingInfo = async (req, res) => {
     try {
-
-        const shipments = readShipments();
-
-        const shipment = shipments.find(
-            item =>
-                item.trackingNumber ===
-                req.params.trackingNumber
-        );
-
+        const shipment = await Shipment.findOne({
+            trackingNumber: req.params.trackingNumber
+        });
 
         if (!shipment) {
-
             return res.status(404).json({
                 success: false,
                 message: "Tracking number not found"
             });
-
         }
 
+        const trackingEvents = await TrackingEvent.find({
+            shipmentId: shipment._id
+        }).sort({ createdAt: 1 });
 
         res.status(200).json({
-
             success: true,
-
             data: {
-
-                trackingNumber:
-                    shipment.trackingNumber,
-
-                status:
-                    shipment.status,
-
-                currentLocation:
-                    shipment.currentLocation,
-
-                origin:
-                    shipment.origin,
-
-                destination:
-                    shipment.destination,
-
-                estimatedDelivery:
-                    shipment.estimatedDelivery
-
+                trackingNumber: shipment.trackingNumber,
+                status: shipment.status,
+                currentLocation: shipment.currentLocation,
+                origin: shipment.origin,
+                destination: shipment.destination,
+                estimatedDelivery: shipment.estimatedDelivery,
+                trackingHistory: trackingEvents
             }
-
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to fetch tracking information",
-
-            error:
-                error.message
-
+            message: "Failed to fetch tracking information",
+            error: error.message
         });
-
     }
-
 };
 
 
 // UPDATE TRACKING STATUS
-const updateTrackingStatus = (req, res) => {
-
+const updateTrackingStatus = async (req, res) => {
     try {
+        const shipment = await Shipment.findOne({
+            trackingNumber: req.params.trackingNumber
+        });
 
-        const shipments = readShipments();
-
-
-        const index = shipments.findIndex(
-
-            item =>
-                item.trackingNumber ===
-                req.params.trackingNumber
-
-        );
-
-
-        if (index === -1) {
-
+        if (!shipment) {
             return res.status(404).json({
-
                 success: false,
-
-                message:
-                    "Tracking number not found"
-
+                message: "Tracking number not found"
             });
-
         }
-
 
         const {
             status,
@@ -140,73 +63,47 @@ const updateTrackingStatus = (req, res) => {
             estimatedDelivery
         } = req.body;
 
-
         if (status) {
-
-            shipments[index].status = status;
-
+            shipment.status = status;
         }
-
 
         if (currentLocation) {
-
-            shipments[index].currentLocation =
-                currentLocation;
-
+            shipment.currentLocation = currentLocation;
         }
-
 
         if (estimatedDelivery) {
-
-            shipments[index].estimatedDelivery =
-                estimatedDelivery;
-
+            shipment.estimatedDelivery = estimatedDelivery;
         }
 
+        await shipment.save();
 
-        shipments[index].updatedAt =
-            new Date().toISOString();
-
-
-        writeShipments(shipments);
-
+        const trackingEvent = await TrackingEvent.create({
+            shipmentId: shipment._id,
+            status: shipment.status,
+            location: shipment.currentLocation,
+            description: `Shipment status updated to ${shipment.status}`
+        });
 
         res.status(200).json({
-
             success: true,
-
-            message:
-                "Tracking information updated",
-
-            data:
-                shipments[index]
-
+            message: "Tracking information updated",
+            data: {
+                shipment,
+                trackingEvent
+            }
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to update tracking information",
-
-            error:
-                error.message
-
+            message: "Failed to update tracking information",
+            error: error.message
         });
-
     }
-
 };
 
 
 module.exports = {
-
     getTrackingInfo,
-
     updateTrackingStatus
-
 };

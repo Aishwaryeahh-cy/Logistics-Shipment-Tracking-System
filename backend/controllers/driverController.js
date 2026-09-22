@@ -1,43 +1,9 @@
-const fs = require("fs");
-const path = require("path");
-
-const driversFile = path.join(
-    __dirname,
-    "../data/drivers.json"
-);
-
-
-// Read drivers
-const readDrivers = () => {
-
-    const data = fs.readFileSync(
-        driversFile,
-        "utf-8"
-    );
-
-    return JSON.parse(data);
-
-};
-
-
-// Write drivers
-const writeDrivers = (drivers) => {
-
-    fs.writeFileSync(
-        driversFile,
-        JSON.stringify(drivers, null, 2)
-    );
-
-};
+const Driver = require("../models/Driver");
 
 
 // CREATE DRIVER
-const createDriver = (req, res) => {
-
+const createDriver = async (req, res) => {
     try {
-
-        const drivers = readDrivers();
-
         const {
             name,
             phone,
@@ -46,336 +12,172 @@ const createDriver = (req, res) => {
             vehicleType
         } = req.body;
 
-
         if (
             !name ||
             !phone ||
             !licenseNumber ||
             !vehicleNumber
         ) {
-
             return res.status(400).json({
-
                 success: false,
-
-                message:
-                    "Required driver details are missing"
-
+                message: "Required driver details are missing"
             });
-
         }
 
+        const existingDriver = await Driver.findOne({
+            $or: [
+                { licenseNumber },
+                { vehicleNumber }
+            ]
+        });
 
-        const driver = {
+        if (existingDriver) {
+            return res.status(400).json({
+                success: false,
+                message: "License number or vehicle number already exists"
+            });
+        }
 
-            id: Date.now().toString(),
-
+        const driver = await Driver.create({
             name,
-
             phone,
-
             licenseNumber,
-
             vehicleNumber,
-
-            vehicleType:
-                vehicleType || "Delivery Van",
-
-            status: "Available",
-
-            createdAt:
-                new Date().toISOString()
-
-        };
-
-
-        drivers.push(driver);
-
-        writeDrivers(drivers);
-
+            vehicleType: vehicleType || "Delivery Van",
+            status: "Available"
+        });
 
         res.status(201).json({
-
             success: true,
-
-            message:
-                "Driver created successfully",
-
+            message: "Driver created successfully",
             data: driver
-
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to create driver",
-
-            error:
-                error.message
-
+            message: "Failed to create driver",
+            error: error.message
         });
-
     }
-
 };
 
 
 // GET ALL DRIVERS
-const getDrivers = (req, res) => {
-
+const getDrivers = async (req, res) => {
     try {
-
-        const drivers = readDrivers();
-
+        const drivers = await Driver.find();
 
         res.status(200).json({
-
             success: true,
-
             count: drivers.length,
-
             data: drivers
-
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to fetch drivers",
-
-            error:
-                error.message
-
+            message: "Failed to fetch drivers",
+            error: error.message
         });
-
     }
-
 };
 
 
 // GET DRIVER BY ID
-const getDriverById = (req, res) => {
-
+const getDriverById = async (req, res) => {
     try {
-
-        const drivers = readDrivers();
-
-
-        const driver = drivers.find(
-
-            item =>
-                item.id === req.params.id
-
-        );
-
+        const driver = await Driver.findById(req.params.id);
 
         if (!driver) {
-
             return res.status(404).json({
-
                 success: false,
-
-                message:
-                    "Driver not found"
-
+                message: "Driver not found"
             });
-
         }
 
-
         res.status(200).json({
-
             success: true,
-
             data: driver
-
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to fetch driver",
-
-            error:
-                error.message
-
+            message: "Failed to fetch driver",
+            error: error.message
         });
-
     }
-
 };
 
 
 // UPDATE DRIVER
-const updateDriver = (req, res) => {
-
+const updateDriver = async (req, res) => {
     try {
-
-        const drivers = readDrivers();
-
-
-        const index = drivers.findIndex(
-
-            item =>
-                item.id === req.params.id
-
+        const driver = await Driver.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            {
+                new: true,
+                runValidators: true
+            }
         );
 
-
-        if (index === -1) {
-
+        if (!driver) {
             return res.status(404).json({
-
                 success: false,
-
-                message:
-                    "Driver not found"
-
+                message: "Driver not found"
             });
-
         }
 
-
-        drivers[index] = {
-
-            ...drivers[index],
-
-            ...req.body,
-
-            updatedAt:
-                new Date().toISOString()
-
-        };
-
-
-        writeDrivers(drivers);
-
-
         res.status(200).json({
-
             success: true,
-
-            message:
-                "Driver updated successfully",
-
-            data:
-                drivers[index]
-
+            message: "Driver updated successfully",
+            data: driver
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to update driver",
-
-            error:
-                error.message
-
+            message: "Failed to update driver",
+            error: error.message
         });
-
     }
-
 };
 
 
 // DELETE DRIVER
-const deleteDriver = (req, res) => {
-
+const deleteDriver = async (req, res) => {
     try {
+        const driver = await Driver.findByIdAndDelete(req.params.id);
 
-        const drivers = readDrivers();
-
-
-        const index = drivers.findIndex(
-
-            item =>
-                item.id === req.params.id
-
-        );
-
-
-        if (index === -1) {
-
+        if (!driver) {
             return res.status(404).json({
-
                 success: false,
-
-                message:
-                    "Driver not found"
-
+                message: "Driver not found"
             });
-
         }
 
-
-        const deletedDriver =
-            drivers[index];
-
-
-        drivers.splice(index, 1);
-
-
-        writeDrivers(drivers);
-
-
         res.status(200).json({
-
             success: true,
-
-            message:
-                "Driver deleted successfully",
-
-            data:
-                deletedDriver
-
+            message: "Driver deleted successfully",
+            data: driver
         });
-
 
     } catch (error) {
-
         res.status(500).json({
-
             success: false,
-
-            message:
-                "Failed to delete driver",
-
-            error:
-                error.message
-
+            message: "Failed to delete driver",
+            error: error.message
         });
-
     }
-
 };
 
 
 module.exports = {
-
     createDriver,
     getDrivers,
     getDriverById,
     updateDriver,
     deleteDriver
-
 };

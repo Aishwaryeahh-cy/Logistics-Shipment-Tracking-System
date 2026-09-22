@@ -1,57 +1,21 @@
-const fs = require("fs");
-const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const usersFile = path.join(
-    __dirname,
-    "../data/users.json"
-);
-
-
-// Read users from JSON file
-const readUsers = () => {
-
-    const data = fs.readFileSync(
-        usersFile,
-        "utf-8"
-    );
-
-    return JSON.parse(data);
-
-};
-
-
-// Write users to JSON file
-const writeUsers = (users) => {
-
-    fs.writeFileSync(
-        usersFile,
-        JSON.stringify(users, null, 2)
-    );
-
-};
-
+const User = require("../models/User");
 
 // Generate JWT token
 const generateToken = (user) => {
-
     return jwt.sign(
-
         {
-            id: user.id,
+            id: user._id,
             email: user.email,
             role: user.role
         },
-
         process.env.JWT_SECRET,
-
         {
             expiresIn: "1d"
         }
-
     );
-
 };
 
 
@@ -63,22 +27,14 @@ const register = async (req, res) => {
 
     try {
 
-        const users = readUsers();
-
-
         const {
             name,
             email,
             password
         } = req.body;
 
-
         // Check required fields
-        if (
-            !name ||
-            !email ||
-            !password
-        ) {
+        if (!name || !email || !password) {
 
             return res.status(400).json({
 
@@ -91,16 +47,15 @@ const register = async (req, res) => {
 
         }
 
+        const normalizedEmail =
+            email.toLowerCase().trim();
+
 
         // Check if user already exists
-        const existingUser = users.find(
-
-            user =>
-                user.email.toLowerCase() ===
-                email.toLowerCase()
-
-        );
-
+        const existingUser =
+            await User.findOne({
+                email: normalizedEmail
+            });
 
         if (existingUser) {
 
@@ -121,29 +76,18 @@ const register = async (req, res) => {
             await bcrypt.hash(password, 10);
 
 
-        // Create user
-        const user = {
-
-            id: Date.now().toString(),
+        // Create user in MongoDB
+        const user = await User.create({
 
             name,
 
-            email: email.toLowerCase(),
+            email: normalizedEmail,
 
             password: hashedPassword,
 
-            role: "user",
+            role: "user"
 
-            createdAt:
-                new Date().toISOString()
-
-        };
-
-
-        // Save user
-        users.push(user);
-
-        writeUsers(users);
+        });
 
 
         // Generate token
@@ -163,7 +107,7 @@ const register = async (req, res) => {
 
                 user: {
 
-                    id: user.id,
+                    id: user._id,
 
                     name: user.name,
 
@@ -178,7 +122,6 @@ const register = async (req, res) => {
             }
 
         });
-
 
     } catch (error) {
 
@@ -207,9 +150,6 @@ const login = async (req, res) => {
 
     try {
 
-        const users = readUsers();
-
-
         const {
             email,
             password
@@ -217,10 +157,7 @@ const login = async (req, res) => {
 
 
         // Check required fields
-        if (
-            !email ||
-            !password
-        ) {
+        if (!email || !password) {
 
             return res.status(400).json({
 
@@ -234,14 +171,15 @@ const login = async (req, res) => {
         }
 
 
-        // Find user
-        const user = users.find(
+        const normalizedEmail =
+            email.toLowerCase().trim();
 
-            item =>
-                item.email.toLowerCase() ===
-                email.toLowerCase()
 
-        );
+        // Find user in MongoDB
+        const user =
+            await User.findOne({
+                email: normalizedEmail
+            });
 
 
         if (!user) {
@@ -296,7 +234,7 @@ const login = async (req, res) => {
 
                 user: {
 
-                    id: user.id,
+                    id: user._id,
 
                     name: user.name,
 
@@ -311,7 +249,6 @@ const login = async (req, res) => {
             }
 
         });
-
 
     } catch (error) {
 
@@ -336,19 +273,13 @@ const login = async (req, res) => {
 // GET CURRENT USER
 // ===============================
 
-const getMe = (req, res) => {
+const getMe = async (req, res) => {
 
     try {
 
-        const users = readUsers();
-
-
-        const user = users.find(
-
-            item =>
-                item.id === req.user.id
-
-        );
+        // Find user using ID from JWT
+        const user =
+            await User.findById(req.user.id);
 
 
         if (!user) {
@@ -371,7 +302,7 @@ const getMe = (req, res) => {
 
             data: {
 
-                id: user.id,
+                id: user._id,
 
                 name: user.name,
 
@@ -382,7 +313,6 @@ const getMe = (req, res) => {
             }
 
         });
-
 
     } catch (error) {
 
